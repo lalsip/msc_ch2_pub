@@ -110,14 +110,14 @@ GSLwb <- ggplot() +
   geom_sf(data=sf_WGS84, colour="grey") +
   geom_sf(data = mz, colour = "Red",size = 0.5)+ # management zones
   #geom_sf(data= rv, colour = "light grey") + # inflows
-  coord_sf(xlim=c(-117, -115), ylim=c(60.75, 61.8), # bbox is different - no east arm
+  coord_sf(xlim=c(-116.75, -114.75), ylim=c(60.8, 61.5), # bbox is different - no east arm
            expand=FALSE)+ # no gaps on axes
   scale_x_continuous(labels = function(x) paste0(x, '\u00B0')) +
   scale_y_continuous(labels = function(x) paste0(x, '\u00B0')) +
   theme( #axis.text = element_blank(),
     panel.background = element_blank(), # Remove panel background
     axis.line = element_line(colour = "grey")) # Add axis lines
-
+GSLwb
 
 # Boat catch + lim ----------
 boat_raw <- read.csv("./data/boatcatch.csv")
