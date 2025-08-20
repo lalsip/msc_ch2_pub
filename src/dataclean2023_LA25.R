@@ -100,8 +100,8 @@ GSL <- ggplot() +
   theme(
     panel.background = element_blank(), # Remove panel background
     axis.line = element_line(colour = "grey"), # Add axis lines
-  ) +
-  guides(custom=guide_custom(compass_rose, title="Compass"))
+  ) #+
+  # guides(custom=guide_custom(compass_rose, title="Compass"))
 
 GSLmb <- ggplot() + 
   geom_sf(data=sf_WGS84, colour="grey") +
@@ -114,8 +114,8 @@ GSLmb <- ggplot() +
   theme(
     panel.background = element_blank(), # Remove panel background
     axis.line = element_line(colour = "grey"), # Add axis lines
-  ) +
-  guides(custom=guide_custom(compass_rose, title="Compass"))
+  ) #+
+  # guides(custom=guide_custom(compass_rose, title="Compass"))
 
 # western basin 
 GSLwb <- ggplot() + 
@@ -128,8 +128,8 @@ GSLwb <- ggplot() +
   scale_y_continuous(labels = function(x) paste0(x, '\u00B0')) +
   theme( #axis.text = element_blank(),
     panel.background = element_blank(), # Remove panel background
-    axis.line = element_line(colour = "grey")) + # Add axis lines
-  guides(custom=guide_custom(compass_rose, title="Compass"))
+    axis.line = element_line(colour = "grey")) #+ # Add axis lines
+  # guides(custom=guide_custom(compass_rose, title="Compass"))
 GSLwb
 
 # Boat catch + lim ----------
@@ -490,15 +490,16 @@ GSLmb +
 south<-sf::st_read(dsn='./data/sf/southsouth.shp')
 sf::st_crs(south) <-'+proj=longlat +datum=WGS84 +no_defs'
 # south.UTM = sf::st_transform(south, geo_proj)
-south <- as_Spatial(south) #convert to spatial counterpart # 8.20.25 needed now that not using readOGR
+south <- sf::as_Spatial(south) #convert to spatial counterpart # 8.20.25 needed now that not using readOGR
 # south2 <- as(south, "Spatial") # this also works for simple features
 
-pnts<-SpatialPointsDataFrame(catchwb[,c("startlon_decdeg","startlat_decdeg")], catchwb,
+pnts<-sp::SpatialPointsDataFrame(catchwb[,c("startlon_decdeg","startlat_decdeg")], catchwb,
                                proj4string = CRS('+proj=longlat +datum=WGS84 +no_defs'))
 
 
-dist.mat <- geosphere::dist2Line(p = pnts, line = south)
 
+dist.mat <- geosphere::dist2Line(p = pnts, line = south)
+citation('geosphere')
 # add on dist to S shore to dataset
 catchwb <- cbind(catchwb, dist.mat) 
 

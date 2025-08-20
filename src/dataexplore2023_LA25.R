@@ -16,7 +16,7 @@
 
 ## libraries ---------
 source("./data/HighstatLibV13.R") # changed
-load("./data/datacleanoutput.RData") #clean data from dataclean2023.R
+#load("./data/datacleanoutput.RData") #clean data from dataclean2023.R
 
 library(ggplot2)
 library(tidyverse)
@@ -36,26 +36,19 @@ mean(catchwb6_train$soaktime) # 22.95
 sd(catchwb6_train$soaktime) # 1.39
 
 
-
 ## experimental design ------
 catchwb6_pred <- catchwb6_pred %>% 
   mutate(set = ifelse(!is.na(nettot), "Training", "Testing"))
 
 
 GSLwb +
-  geom_point(aes(x=lon, y=lat, colour=set), data=catchwb6_pred) +
-  xlab ("Longitude" ) +
-  ylab ("Latitude")  +
-  #facet_wrap(~fyear) +
-  theme(axis.text = element_text(size=7), 
-       panel.spacing = unit(20, "pt"),
-       legend.title=element_blank(),
-       legend.position=c(0.9,0.09))
+  geom_point(aes(x=lon, y=lat, colour=set), size=4, alpha=0.4, data=catchwb6_pred) +
+  labs(x="Longitude", y="Latitude", colour="Dataset") +
+    #facet_wrap(~fyear) +
+  theme(axis.text = element_text(size=9), 
+       panel.spacing = unit(20, "pt"), 
+       legend.position = c(0.92, 0.9) )
 
-GSLwb +
-  geom_point(aes(x=lon, y=lat, colour=set), data=catchwb6_pred) +
-  xlab ("Longitude" ) +
-  ylab ("Latitude") 
 
 citation('INLA')
 
@@ -86,6 +79,7 @@ sum(catchwb6$nettot == 0)  #Number of zeros
 MyVar <- c("soaktime", "nettot", "temp_C", "turb_FNU", "DO_perc", "pH",
            "distance_to_south", "sitedep_m", "distance_to_shore", "year")
 Mypairs(catchwb6_train[, MyVar])
+
 # high collinearity = over 0.3
 
 MyVar <- c("soaktime", "nettot", "temp_C", "turb_FNU", "DO_perc", "pH",
@@ -192,7 +186,7 @@ xyplot(Ykm ~ Xkm | factor(year),
 MyVar <- c("soaktime", "sitedep_m", "turb_FNU", 
            "temp_C", "distance_to_shore", "distance_to_south", "year")
 Mypairs(catchwb6[, MyVar])
-corvif(catchwb6[,MyVar])
+corvif(catchwb6_train[,MyVar])
 # remove sitedep at 3.25
 
 MyVar <- c("soaktime",  "turb_FNU",
@@ -239,6 +233,7 @@ xyplot(Ykm ~ Xkm | factor(year),
 MyVar <- c("soaktime", "sitedep_m", "turb_FNU", 
            "temp_C", "distance_to_shore", "distance_to_south", "year")
 Mypairs(catchwb6_train[, MyVar])
+corvi(catchwb6_train[,MyVar])
 # remove sitedep at 3.25
 
 MyVar <- c("soaktime",  "turb_FNU",
