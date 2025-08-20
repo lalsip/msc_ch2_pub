@@ -77,6 +77,16 @@ mz_NAD83 <- st_transform(mz, 4269) # NAD 83
 
 #https://stackoverflow.com/questions/60656445/how-to-fix-degree-symbol-not-showing-correctly-in-r-on-linux-fedora-31/60733863#60733863
 
+# https://www.tidyverse.org/blog/2024/02/ggplot2-3-5-0-legends/ # add compass rose
+x <- c(0.5, 1, 1.5, 1.2, 1.5, 1, 0.5, 0.8, 1, 1.15, 2, 1.15, 1, 0.85, 0, 0.85)
+y <- c(1.5, 1.2, 1.5, 1, 0.5, 0.8, 0.5, 1, 2, 1.15, 1, 0.85, 0, 0.85, 1, 1.15)
+
+compass_rose <- grid::polygonGrob(
+  x = unit(x, "cm"), y = unit(y, "cm"), id.lengths = c(8, 8),
+  gp = grid::gpar(fill = c("grey50", "grey25"), col = NA)
+)
+
+
 ## create base maps
 GSL <- ggplot() + 
   #geom_sf(data = sf) + 
@@ -90,7 +100,8 @@ GSL <- ggplot() +
   theme(
     panel.background = element_blank(), # Remove panel background
     axis.line = element_line(colour = "grey"), # Add axis lines
-  )
+  ) +
+  guides(custom=guide_custom(compass_rose, title="Compass"))
 
 GSLmb <- ggplot() + 
   geom_sf(data=sf_WGS84, colour="grey") +
@@ -103,7 +114,8 @@ GSLmb <- ggplot() +
   theme(
     panel.background = element_blank(), # Remove panel background
     axis.line = element_line(colour = "grey"), # Add axis lines
-  )
+  ) +
+  guides(custom=guide_custom(compass_rose, title="Compass"))
 
 # western basin 
 GSLwb <- ggplot() + 
@@ -116,7 +128,8 @@ GSLwb <- ggplot() +
   scale_y_continuous(labels = function(x) paste0(x, '\u00B0')) +
   theme( #axis.text = element_blank(),
     panel.background = element_blank(), # Remove panel background
-    axis.line = element_line(colour = "grey")) # Add axis lines
+    axis.line = element_line(colour = "grey")) + # Add axis lines
+  guides(custom=guide_custom(compass_rose, title="Compass"))
 GSLwb
 
 # Boat catch + lim ----------
