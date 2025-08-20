@@ -400,7 +400,7 @@ catchwb <- catch %>%
 catchwb <- catchwb %>% 
   filter(!is.na(catchwb$startlat_decdeg))
 
-# Distance from shore -------
+# Distance from nearest shore -------
 # 8.15.25 this used rgdal::readOGR(), updated to use sf pkg
 # make a shapefile of lake, just 2 zones for now
 
@@ -427,7 +427,7 @@ sf::st_crs(ZONE_II) <- '+proj=longlat +datum=WGS84 +no_defs'
 ZONE_II.UTM = sf::st_transform(ZONE_II, geo_proj)
 
 ZONE_III <- sf::st_read("./data/sf/ZONE III.shp")
-sf::st_crs(ZONE_IW) <- '+proj=longlat +datum=WGS84 +no_defs'
+sf::st_crs(ZONE_III) <- '+proj=longlat +datum=WGS84 +no_defs'
 ZONE_III.UTM = sf::st_transform(ZONE_III, geo_proj)
 
 #merge zones
@@ -435,8 +435,8 @@ ZONE_III.UTM = sf::st_transform(ZONE_III, geo_proj)
 FISH.SHP.UTM=sf::st_union(ZONE_IE.UTM, ZONE_IW.UTM)
 
 # plot(FISH.SHP.UTM)
-# FISH.SHP.UTM=raster::union(FISH.SHP.UTM,ZONE_II.UTM)
-# FISH.SHP.UTM=raster::union(FISH.SHP.UTM,ZONE_III.UTM)
+FISH.SHP.UTM=sf::st_union(FISH.SHP.UTM,ZONE_II.UTM)
+FISH.SHP.UTM=sf::st_union(FISH.SHP.UTM,ZONE_III.UTM)
 
 # citation()
 # citation('spatstat.geom')
@@ -448,11 +448,14 @@ catchwb$latlon <- terra::project(x=cbind(c(catchwb$startlon_decdeg), c(catchwb$s
 WIN.UTM<- spatstat.geom::as.owin(FISH.SHP.UTM)
 # plot(WIN.UTM)
 
-##create ppp object using lake window
-p<-ppp(catchwb$latlon[,1], catchwb$latlon[,2], window = WIN.UTM)
+##create ppp object in lake window
+p<-spatstat.geom::ppp(catchwb$latlon[,1], catchwb$latlon[,2], window = WIN.UTM)
 # 8.20.25 ignore warning about duplicated points
 
-d<-bdist.points(p)
+# calculate distance of point to boundary of window
+d<-spatstat.geom::bdist.points(p) 
+
+# add distance to shore to dataset
 catchwb$distance_to_shore <- d
 
 #double check that it worked
@@ -460,7 +463,7 @@ GSLmb +
   geom_point(aes(x=startlon_decdeg, y=startlat_decdeg, 
                  colour=distance_to_shore/1000), #/1000 for km
              data=catchwb)
-# makes sense so yes
+# 8.20.25 makes sense now that FMAs II and III incl 
 
 # not working? make sure none of coord are missing or negative
 ## this should be giving distance to ANY shore
@@ -469,19 +472,19 @@ GSLmb +
 #exterior_points <- attr(p, "rejects")
 
 
+# Distance from southern shore -----
+## JH i made a nonsense one by eye, you'll need to make a line shape object from your actual zones for this to work
+south<-sf::st_read(dsn='./data/sf/southsouth.shp')
+sf::st_crs(south) <-'+proj=longlat +datum=WGS84 +no_defs'
+# south.UTM = sf::st_transform(south, geo_proj)
+south <- as_Spatial(south) #convert to spatial counterpart # 8.20.25 needed now that not using readOGR
+# south2 <- as(south, "Spatial") # this also works for simple features
 
-####from one shore (south)
-south<-readOGR(dsn='C:/Users/alsipl/Desktop/JackDistFromShore', layer='southsouth')###i made a nonsense one by eye, you'll need to make a line shape object from your actual zones for this to work
-crs(south)<-'+proj=longlat +datum=WGS84 +no_defs'
-#south.UTM=spTransform(south, geo_proj)
-
-# catchwb$latlon<-project(cbind(c(catchwb$startlon_decdeg, c(catchwb$startlat_decdeg)),
-#                     '+proj=longlat +datum=WGS84 +no_defs'))
-
-ECHO.B<-SpatialPointsDataFrame(catchwb[,c("startlon_decdeg","startlat_decdeg")], catchwb,
+pnts<-SpatialPointsDataFrame(catchwb[,c("startlon_decdeg","startlat_decdeg")], catchwb,
                                proj4string = CRS('+proj=longlat +datum=WGS84 +no_defs'))
 
-dist.mat <- geosphere::dist2Line(p = ECHO.B, line = south)
+
+dist.mat <- geosphere::dist2Line(p = pnts, line = south)
 
 # add on dist to S shore to dataset
 catchwb <- cbind(catchwb, dist.mat) 
@@ -490,6 +493,12 @@ catchwb <- catchwb %>%
   dplyr::select(-lon, -lat, -ID, -latlon) %>% 
   dplyr::rename("distance_to_south" = "distance")
 
+#double check that it worked
+GSLmb +
+  geom_point(aes(x=startlon_decdeg, y=startlat_decdeg, 
+                 colour=distance_to_south/1000), #/1000 for km
+             data=catchwb)
+# 8.20.25 works! or at least numbers make sense
 
 # filter for VALID sets
 catchwb <- catchwb %>% 
@@ -575,8 +584,8 @@ LL <- LongLatToUTM(x = catchwb2$lon,
                    zone = 11,
                    Hemisphere = "south")
 
-catchwb2$X.utm <- LL$X
-catchwb2$Y.utm <- LL$Y
+catchwb2$X.utm <- LL$coords.x1 #8.20.25 had to changed from LL$X to LL$coords.x1
+catchwb2$Y.utm <- LL$coords.x2 #same as above
 catchwb2$Xkm   <- catchwb2$X.utm / 1000 
 catchwb2$Ykm   <- catchwb2$Y.utm / 1000
 
