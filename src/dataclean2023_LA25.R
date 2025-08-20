@@ -18,7 +18,7 @@ library(sp) # old version of sf
 #library(rgdal)
 # 8.15.25 rgdal was removed from cran in 2023-06
 # 8.15.25 dld last version (1.6-7) from archive https://cran.r-project.org/src/contrib/Archive/rgdal/
-remotes::install_local(path = './data/rgdal_1.6-7.tar.gz', dependencies = TRUE)
+# remotes::install_local(path = './data/rgdal_1.6-7.tar.gz', dependencies = TRUE)
 #library(maptools)
 
 library(raster)
@@ -411,7 +411,7 @@ catchwb <- catchwb %>%
 # ZONE_II.UTM=spTransform(ZONE_II, geo_proj)
 # crs(ZONE_III)<-'+proj=longlat +datum=WGS84 +no_defs'
 # ZONE_III.UTM=spTransform(ZONE_III, geo_proj)
-geo_proj='+proj=utm +zone=14'
+geo_proj='+proj=utm +zone=11' # 8.20.25 make sure consistent zone as in catchwb$latlon
 
 ZONE_IE <- sf::st_read("./data/sf/ZONE IE.shp")
 sf::st_crs(ZONE_IE) <- '+proj=longlat +datum=WGS84 +no_defs'
@@ -420,6 +420,15 @@ ZONE_IE.UTM = sf::st_transform(ZONE_IE, geo_proj)
 ZONE_IW <- sf::st_read("./data/sf/ZONE IW.shp")
 sf::st_crs(ZONE_IW) <- '+proj=longlat +datum=WGS84 +no_defs'
 ZONE_IW.UTM = sf::st_transform(ZONE_IW, geo_proj)
+
+# 8.20.25 added in FMAs II and III so boundary of IE not incl
+ZONE_II <- sf::st_read("./data/sf/ZONE II.shp")
+sf::st_crs(ZONE_II) <- '+proj=longlat +datum=WGS84 +no_defs'
+ZONE_II.UTM = sf::st_transform(ZONE_II, geo_proj)
+
+ZONE_III <- sf::st_read("./data/sf/ZONE III.shp")
+sf::st_crs(ZONE_IW) <- '+proj=longlat +datum=WGS84 +no_defs'
+ZONE_III.UTM = sf::st_transform(ZONE_III, geo_proj)
 
 #merge zones
 ## helps avoid measuring to area boundary rather than shore
@@ -430,23 +439,27 @@ FISH.SHP.UTM=sf::st_union(ZONE_IE.UTM, ZONE_IW.UTM)
 # FISH.SHP.UTM=raster::union(FISH.SHP.UTM,ZONE_III.UTM)
 
 # citation()
-# citation('spatstat')
+# citation('spatstat.geom')
 
 catchwb$latlon <- terra::project(x=cbind(c(catchwb$startlon_decdeg), c(catchwb$startlat_decdeg)), 
                                  from="+proj=longlat +datum=WGS84 +no_defs", #8.15.25 from= was missing
-                                 to='+proj=utm +zone=14') #JH had as 14, should be 11?
+                                 to='+proj=utm +zone=11') #8.15.25 JH had as 14, should be 11
 #create window from lake
-WIN.UTM<-as.owin(FISH.SHP.UTM)
+WIN.UTM<- spatstat.geom::as.owin(FISH.SHP.UTM)
+# plot(WIN.UTM)
+
 ##create ppp object using lake window
 p<-ppp(catchwb$latlon[,1], catchwb$latlon[,2], window = WIN.UTM)
-
+# 8.20.25 ignore warning about duplicated points
 
 d<-bdist.points(p)
 catchwb$distance_to_shore <- d
 
 #double check that it worked
-# GSLmb +
-#   geom_point(aes(x=startlon_decdeg, y=startlat_decdeg, colour=distance_to_shore/1000), data=catchwb)
+GSLmb +
+  geom_point(aes(x=startlon_decdeg, y=startlat_decdeg, 
+                 colour=distance_to_shore/1000), #/1000 for km
+             data=catchwb)
 # makes sense so yes
 
 # not working? make sure none of coord are missing or negative
