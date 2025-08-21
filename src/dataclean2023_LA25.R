@@ -1,26 +1,23 @@
-# Libraries --------------------
+### Preliminary data exploration for ch2 paper
 
+# intial ----
+## libraries --------------------
+
+## Load libraries, functions
 library(tidyverse)
-#install.packages('tidyverse', dependencies = TRUE)
 
 library(lubridate) # working with dates
 library(hms) # working with times
 library(measurements) #deg min sec to dd
 
 library(patchwork) # easier side by side plots
-library(ggpubr) # side by side with one legend
+# library(ggpubr) # side by side with one legend
 library(lattice) # bwplot for homogeneity
 library(GGally) # ggpairs for collinearity
 library(gstat) # semivariogram for independence
 
 library(sf) # need for reading spatial data, work with spatial vector data (replaces sp)
-library(sp) # old version of sf
-#library(rgdal)
-# 8.15.25 rgdal was removed from cran in 2023-06
-# 8.15.25 dld last version (1.6-7) from archive https://cran.r-project.org/src/contrib/Archive/rgdal/
-# remotes::install_local(path = './data/rgdal_1.6-7.tar.gz', dependencies = TRUE)
-#library(maptools)
-
+library(sp) 
 library(raster)
 library(spatstat)
 
@@ -31,11 +28,108 @@ library(gstat)
 
 library(vegan)  #install.packages("vegan", dependencies = TRUE) 
 library(lattice)
-source("./data/HighstatLibV13.R")
 
-# Map --------------------
+# from JH
+LongLatToUTM <- function(x,y,zone, Hemisphere = "north"){
+  xy <- data.frame(ID = 1:length(x), X = x, Y = y)
+  coordinates(xy) <- c("X", "Y")
+  proj4string(xy) <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")  
+  if (Hemisphere == "north"){
+    res <- spTransform(xy, 
+                       CRS(paste("+proj=utm +zone=",zone," ellps=WGS84",sep='')))
+  }
+  
+  if (Hemisphere == "south"){
+    res <- spTransform(xy, 
+                       CRS(paste("+proj=utm +zone=",zone,
+                                 " +ellps=WGS84 +datum=WGS84 +units=m +no_defs +south",sep='')))
+  }
+  
+  return(as.data.frame(res))
+}
 
-# all functions and methods in sf that operate on spatial data are prefixed by st_ for spatial type
+
+# Mixed effects models and extensions in ecology with R. (2009).
+# Zuur, AF, Ieno, EN, Walker, N, Saveliev, AA, and Smith, GM. Springer.
+# https://www.highstat.com/index.php/books2?view=article&id=17&catid=18
+source("./data/HighstatLibV13.R") # 
+# used the corvif() and helper fxns 
+corvif <- function(dataz) {
+  dataz <- as.data.frame(dataz)
+  
+  #vif part
+  form    <- formula(paste("fooy ~ ",paste(strsplit(names(dataz)," "),collapse=" + ")))
+  dataz   <- data.frame(fooy=1 + rnorm(nrow(dataz)) ,dataz)
+  lm_mod  <- lm(form,dataz)
+  
+  cat("\n\nVariance inflation factors\n\n")
+  print(myvif(lm_mod))
+}
+
+
+#Support function for corvif. Will not be called by the user
+myvif <- function(mod) {
+  v <- vcov(mod)
+  assign <- attributes(model.matrix(mod))$assign
+  if (names(coefficients(mod)[1]) == "(Intercept)") {
+    v <- v[-1, -1]
+    assign <- assign[-1]
+  } else warning("No intercept: vifs may not be sensible.")
+  terms <- labels(terms(mod))
+  n.terms <- length(terms)
+  if (n.terms < 2) stop("The model contains fewer than 2 terms")
+  if (length(assign) > dim(v)[1] ) {
+    diag(tmp_cor)<-0
+    if (any(tmp_cor==1.0)){
+      return("Sample size is too small, 100% collinearity is present")
+    } else {
+      return("Sample size is too small")
+    }
+  }
+  R <- cov2cor(v)
+  detR <- det(R)
+  result <- matrix(0, n.terms, 3)
+  rownames(result) <- terms
+  colnames(result) <- c("GVIF", "Df", "GVIF^(1/2Df)")
+  for (term in 1:n.terms) {
+    subs <- which(assign == term)
+    result[term, 1] <- det(as.matrix(R[subs, subs])) * det(as.matrix(R[-subs, -subs])) / detR
+    result[term, 2] <- length(subs)
+  }
+  if (all(result[, 2] == 1)) {
+    result <- data.frame(GVIF=result[, 1])
+  } else {
+    result[, 3] <- result[, 1]^(1/(2 * result[, 2]))
+  }
+  invisible(result)
+}
+
+
+# used the modification to pairs() in base R from
+# Yuan Y, Cantoni E, Treble M, Flemming JM (2021).
+# Spatiotemporal modeling of bycatch data: methods and a practical guide through 
+# a case study in a Canadian Arctic fishery. Canadian Journal of Fisheries and 
+# Aquatic Sciences 79(1) https://doi.org/10.1139/cjfas-2020-0267 
+panel.hist <- function(x, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)
+}
+panel.cor <- function(x, y, digits = 2, prefix = "", ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- abs(cor(x, y))
+  txt <- format(round(r,2), nsmall = digits)
+  txt <- paste0(prefix, txt)
+  text(0.5, 0.5, txt, cex = 3*log(r+1.5))
+}
+
+## shape files--------------------
 
 # GSL outline
 sf<-st_read("./data/sf/NWT_Detailed_LakesRivers_GSL.shp")
@@ -87,7 +181,7 @@ mz_NAD83 <- st_transform(mz, 4269) # NAD 83
 # )
 
 
-## create base maps
+### create base maps ----
 GSL <- ggplot() + 
   #geom_sf(data = sf) + 
   geom_sf(data = sf_WGS84, colour = "grey") + # lake outline
@@ -132,8 +226,10 @@ GSLwb <- ggplot() +
   # guides(custom=guide_custom(compass_rose, title="Compass"))
 GSLwb
 
-# Boat catch + lim ----------
+# data cleaning ----
+## boat catch + lim data----------
 boat_raw <- read.csv("./data/boatcatch1.csv")
+
 
 # add in NAs where nothing
 # https://stackoverflow.com/questions/51214357/how-to-remove-only-rows-that-have-all-na-in-r
@@ -151,7 +247,6 @@ boat <- boat_raw %>%
   dplyr::select(-note, -notes_dataentry, -scanned, -netID, -crew, 
                 -endlat_decdeg, -endlon_decdeg, -endsitedep_m)
 
-# tidy
 # convert var into correct formats
 boat <- dplyr::rename(boat, site=grid)
 
@@ -188,14 +283,6 @@ boat<- boat %>%
                                        lubridate::ymd_hms(setdt), units="hours")))
 
 boat$year <- as.factor(year(boat$setdate))
-
-# GSLwb +
-#   geom_point(data=boat %>% filter(year==2023),
-#              mapping=aes(x=startlon_decdeg, y=startlat_decdeg, colour=gillnet),
-#              position=position_dodge(width=0.1), size=3) +
-#   xlab(NULL) +
-#   ylab(NULL) +
-#   theme(legend.position="bottom")
 
 boat <- boat %>% 
   filter(gillnet != "coney") %>% 
@@ -290,7 +377,7 @@ boat1_zeros <- boat1_zeros %>%
 #   geom_point(aes(x=boat$startlon_decdeg, y=boat$startlat_decdeg))
 
 
-# Land catch --------------
+## land catch --------------
 # catch that was processed
 
 land_raw <- read.csv("./data/proccatch1.csv")
@@ -310,7 +397,6 @@ colSums(is.na(land_raw))
 land <- land_raw %>% 
   dplyr::select(-note, -notes_dataentry, -X, -sampler)
 
-# tidy
 # convert var into correct formats
 land <- dplyr::rename(land, site=grid)
 
@@ -377,7 +463,7 @@ land1_zeros <- land1_zeros %>%
 land1_zeros <- land1_zeros %>% 
   filter(gillnet != "pelagic")
 
-# Combine Boat + lim and Land -----
+## combine boat + land -----
 
 catch <- left_join(boat1_zeros, land1_zeros, by=c("site", "setdate", "gillnet", "mesh_mm"))
 
@@ -414,9 +500,7 @@ catchwb <- catch %>%
 catchwb <- catchwb %>% 
   filter(!is.na(catchwb$startlat_decdeg))
 
-# Distance from nearest shore -------
-# 8.15.25 this used rgdal::readOGR(), updated to use sf pkg
-# make a shapefile of lake, just 2 zones for now
+## calc distance from nearest shore -------
 
 # ZONE_IW<-readOGR(dsn='C:/Users/alsipl/Desktop/JackDistFromShore', layer='ZONE IW')
 # ZONE_II<-readOGR(dsn='C:/Users/alsipl/Desktop/JackDistFromShore', layer='ZONE II')
@@ -486,8 +570,8 @@ GSLmb +
 #exterior_points <- attr(p, "rejects")
 
 
-# Distance from southern shore -----
-## JH i made a nonsense one by eye, you'll need to make a line shape object from your actual zones for this to work
+## calc distance from southern shore -----
+
 south<-sf::st_read(dsn='./data/sf/southsouth.shp')
 sf::st_crs(south) <-'+proj=longlat +datum=WGS84 +no_defs'
 # south.UTM = sf::st_transform(south, geo_proj)
@@ -516,7 +600,7 @@ GSLmb +
 # 8.20.25 works! or at least numbers make sense
 
 
-# refine data set ----------
+## refine data set ----------
 # filter for VALID sets
 catchwb <- catchwb %>% 
   filter(soaktime <= 30) %>% 
@@ -584,23 +668,7 @@ catchwb2 <- catchwb2 %>%
 #   filter(setting != "p10") # shouldn't have been set there
 # catchwb2$setting <- droplevels(catchwb2$setting)
 
-LongLatToUTM <- function(x,y,zone, Hemisphere = "north"){
-  xy <- data.frame(ID = 1:length(x), X = x, Y = y)
-  coordinates(xy) <- c("X", "Y")
-  proj4string(xy) <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")  
-  if (Hemisphere == "north"){
-    res <- spTransform(xy, 
-                       CRS(paste("+proj=utm +zone=",zone," ellps=WGS84",sep='')))
-  }
-  
-  if (Hemisphere == "south"){
-    res <- spTransform(xy, 
-                       CRS(paste("+proj=utm +zone=",zone,
-                                 " +ellps=WGS84 +datum=WGS84 +units=m +no_defs +south",sep='')))
-  }
-  
-  return(as.data.frame(res))
-}
+
 
 LL <- LongLatToUTM(x = catchwb2$lon, 
                    y = catchwb2$lat, 
@@ -669,30 +737,13 @@ table(catchwb5$year)
 # 1  2  3  4  5  6  7  8 
 # 9  6  9 15 23 15 16 18 
 
-
-# standardize each continuous covariate. ----
- catchwb5 <- catchwb5 %>%
+# model prep ----
+catchwb5 <- catchwb5 %>%
   dplyr::filter(!is.na(temp_C)) %>% 
-  dplyr::filter(!is.na(turb_FNU)) #%>% 
-#  dplyr::filter(!is.na(DO_perc))
-catchwb5$soaktimec <- MyStd(catchwb5$soaktime)
-catchwb5$turb_FNUc <- MyStd(catchwb5$turb_FNU)
-catchwb5$temp_Cc <- MyStd(catchwb5$temp_C)
-#catchwb5$setting_mc <- MyStd(catchwb5$setting_m)
-#catchwb5$sitedep_mc<- MyStd(catchwb5$sitedep_m)
-catchwb5$distance_to_southc <- MyStd(catchwb5$distance_to_south)
-catchwb5$distance_to_shorec <- MyStd(catchwb5$distance_to_shore)
-#catchwb5$DO_percc <- MyStd(catchwb5$DO_perc)
-
-colSums(is.na(catchwb5))
-
-catchwb5$year <- as.numeric(catchwb5$fyear)
-catchwb5 <- catchwb5 %>% 
-   dplyr::select(-netarea_m2)
+  dplyr::filter(!is.na(turb_FNU))
 
 
-
-# subset --------
+## subset --------
 
 # nrow(catchwb5) # 111
 # length(unique(catchwb5$site)) # 32 sites
@@ -721,7 +772,7 @@ catchwb5 <- catchwb5 %>%
 # catchwb5_pred <- catchwb5_train %>% 
 #   full_join(catchwb5_test) # now the full dataset where test data has NA as nettot 
 
-# num sites ------
+## num sites ------
 # 9 sites (of 32) were only sampled once 
 # remove those sites? 
 
