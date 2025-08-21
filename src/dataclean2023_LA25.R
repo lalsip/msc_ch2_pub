@@ -77,14 +77,14 @@ mz_NAD83 <- st_transform(mz, 4269) # NAD 83
 
 #https://stackoverflow.com/questions/60656445/how-to-fix-degree-symbol-not-showing-correctly-in-r-on-linux-fedora-31/60733863#60733863
 
-# https://www.tidyverse.org/blog/2024/02/ggplot2-3-5-0-legends/ # add compass rose
-x <- c(0.5, 1, 1.5, 1.2, 1.5, 1, 0.5, 0.8, 1, 1.15, 2, 1.15, 1, 0.85, 0, 0.85)
-y <- c(1.5, 1.2, 1.5, 1, 0.5, 0.8, 0.5, 1, 2, 1.15, 1, 0.85, 0, 0.85, 1, 1.15)
-
-compass_rose <- grid::polygonGrob(
-  x = unit(x, "cm"), y = unit(y, "cm"), id.lengths = c(8, 8),
-  gp = grid::gpar(fill = c("grey50", "grey25"), col = NA)
-)
+# # https://www.tidyverse.org/blog/2024/02/ggplot2-3-5-0-legends/ # add compass rose
+# x <- c(0.5, 1, 1.5, 1.2, 1.5, 1, 0.5, 0.8, 1, 1.15, 2, 1.15, 1, 0.85, 0, 0.85)
+# y <- c(1.5, 1.2, 1.5, 1, 0.5, 0.8, 0.5, 1, 2, 1.15, 1, 0.85, 0, 0.85, 1, 1.15)
+# 
+# compass_rose <- grid::polygonGrob(
+#   x = unit(x, "cm"), y = unit(y, "cm"), id.lengths = c(8, 8),
+#   gp = grid::gpar(fill = c("grey50", "grey25"), col = NA)
+# )
 
 
 ## create base maps
@@ -133,7 +133,7 @@ GSLwb <- ggplot() +
 GSLwb
 
 # Boat catch + lim ----------
-boat_raw <- read.csv("./data/boatcatch.csv")
+boat_raw <- read.csv("./data/boatcatch1.csv")
 
 # add in NAs where nothing
 # https://stackoverflow.com/questions/51214357/how-to-remove-only-rows-that-have-all-na-in-r
@@ -148,7 +148,8 @@ colSums(is.na(boat_raw))
 
 # working copy
 boat <- boat_raw %>% 
-  dplyr::select(-note, -notes_dataentry, -scanned, -netID, -crew, -endlat_decdeg, -endlon_decdeg, -endsitedep_m)
+  dplyr::select(-note, -notes_dataentry, -scanned, -netID, -crew, 
+                -endlat_decdeg, -endlon_decdeg, -endsitedep_m)
 
 # tidy
 # convert var into correct formats
@@ -292,7 +293,7 @@ boat1_zeros <- boat1_zeros %>%
 # Land catch --------------
 # catch that was processed
 
-land_raw <- read.csv("./data/proccatch.csv")
+land_raw <- read.csv("./data/proccatch1.csv")
 
 # add in NAs where nothing
 # https://stackoverflow.com/questions/51214357/how-to-remove-only-rows-that-have-all-na-in-r
@@ -499,7 +500,7 @@ pnts<-sp::SpatialPointsDataFrame(catchwb[,c("startlon_decdeg","startlat_decdeg")
 
 
 dist.mat <- geosphere::dist2Line(p = pnts, line = south)
-citation('geosphere')
+# citation('geosphere')
 # add on dist to S shore to dataset
 catchwb <- cbind(catchwb, dist.mat) 
 
@@ -514,6 +515,8 @@ GSLmb +
              data=catchwb)
 # 8.20.25 works! or at least numbers make sense
 
+
+# refine data set ----------
 # filter for VALID sets
 catchwb <- catchwb %>% 
   filter(soaktime <= 30) %>% 
@@ -536,10 +539,15 @@ table(catchwb$site, catchwb$year)
 
 # drop coney
 catchwb <- catchwb %>% 
-  filter(year != "2022") %>% 
-  filter(year != "2023") %>% 
-  filter(mesh_mm != "133") 
+    filter(mesh_mm != "133") 
 
+# drop other years...not in dataset but just in case
+catchwb <- catchwb %>% 
+  filter(year != "2022") %>% 
+  filter(year != "2023") 
+
+
+  
 # drop mids
 catchwb <- catchwb %>% 
   filter(setting != "p10") %>% 
@@ -556,8 +564,9 @@ catchwb$site <- droplevels(catchwb$site)
 catchwb$FMA <- droplevels(catchwb$FMA)
 
 catchwb <- catchwb %>%
-  filter(turb_FNU <= 80)
+  filter(turb_FNU <= 90)
 # don't think it was calibrated past that
+
 
 # create object with only relevant covariates and response var
 catchwb2 <- catchwb %>% 
